@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Worker Details</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.2.1/dist/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">    <link href="https://getbootstrap.com/docs/4.1/examples/pricing/pricing.css" rel="stylesheet"
+                                                                                                                                                                                                                                crossorigin="anonymous">
+    <style>
+        div[done] {
+            background-color: lightgreen;
+        }
+        #dfaMapWrapper { width:700px; height:367px; }
+        #dfaMap { width:100%; height:100%; background-image: url("assets/dfa.png"); background-size: contain; background-repeat: no-repeat;}
+    </style>
+</head>
+<body>
+<div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom shadow-sm">
+    <img src="assets/logo.png" height="50" class="d-inline-block align-top mr-md-4" alt="">
+    <img src="assets/bossard.png" height="30" class="d-inline-block align-left mr-md-4" alt="">
+    <img src="assets/sick.png" height="30" class="d-inline-block align-left mr-md-auto" alt="">
+
+    <nav class="my-2 my-md-0 mr-md-3">
+        <a class="p-2 text-dark" href="#">Worker ID: <span id="worker-id"></span></a>
+        <a class="p-2 text-dark" href="#">Target: <span id="target-id"></span></a>
+        <a class="btn btn-outline-secondary" href="../index.html">Pickup</a>
+    </nav>
+    <a class="btn btn-outline-primary" href="../orders.html">Orders</a>
+</div>
+
+<div class="breadcrumb">
+    <div class="mr-md-auto">Worker</div>
+</div>
+
+
+<div class="container" id="dfaMapWrapper">
+
+        <div id="dfaMap" style="border:1px solid #000000;">
+            <img id="helmet" src="assets/helmet.png" width="51" height="51" style="position: absolute; display: none; z-index: 1;" />
+        </div>
+
+
+    <footer class="pt-4 my-md-5 pt-md-5 border-top">
+        <div class="row">
+            <div class="col-6 ">
+                <img class="mb-2" src="assets/logo.png" alt="" width="100%">
+                <small class="d-block mb-3 text-muted">&copy; 2024</small>
+            </div>
+            <div class="col-3 ">
+                <h5>Features</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="text-muted" href="https://e4tc.de/">Cool stuff</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Random feature</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Team feature</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Stuff for developers</a></li>
+                </ul>
+            </div>
+            <div class="col-3 ">
+                <h5>About</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="text-muted" href="https://e4tc.de/">Team</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Locations</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Privacy</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Terms</a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+</div>
+
+
+<script>
+    const fetchCurrentOrder = () => {
+        fetch("/orders/latest")
+            .then((response) => response.json())
+            .then((json) => {
+                var worker = json.workers.find(({id}) => id === json.order.worker)
+                var location = json.locations.find(({id}) => id === json.order.location)
+                document.getElementById("worker-id").innerHTML = worker.title;
+                document.getElementById("target-id").innerHTML = location.title;
+            })
+            .catch(error => console.error("Error updating orders:", error));
+    }
+
+    fetchCurrentOrder();
+
+
+    setInterval(() => {
+        fetchCurrentOrder();
+
+    }, 5000);
+</script>
+
+<script src="/assets/js/heatmap.min.js"></script>
+<script>
+    window.onload = function() {
+        // create a heatmap instance
+        var heatmap = h337.create({
+            container: document.getElementById('dfaMap'),
+            opacity: .6,
+            radius: 8,
+            blur: .8,
+        });
+        const trackWorker = () => {
+            fetch("/workers")
+                .then((response) => response.json())
+                .then((json) => {
+                    //console.log("worker:", json);
+                    // sensor  0,0  is map   0,370
+                    // sensor  0,28 is map   0,0
+                    // sensor 52,0  is map 670,370
+                    // sensor 52,28 is map 670,0
+                    // x on map is x*12,88
+                    // y on map is 370+(y*-13,2)
+                    heatmap.addData({x: Math.floor(json.data[0].x * 12.88), y: Math.floor(370+json.data[0].y * -13.2), value: 1});
+                    console.log(heatmap.getData());
+                    document.getElementById("helmet").style.left = (json.data[0].x * 12.88)-25 + "px";
+                    document.getElementById("helmet").style.top = (370+json.data[0].y * -13.2)-25 + "px";
+                    document.getElementById("helmet").style.display = "inline"
+                    //.getElementById("helmet"),(json.data[0].x * 12.88)-25,(370+json.data[0].y * -13.2)-25);
+                    //getContext("2d").fillRect(json.data[0].x * 12.88,370+json.data[0].y * -13.2,5,5);
+                })
+                .catch(error => console.error("Error updating orders:", error));
+        }
+        setInterval(() => {
+            trackWorker();
+
+        }, 1000);
+    };
+
+</script>
+
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.6/dist/umd/popper.min.js"
+        integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+</body>
+</html>

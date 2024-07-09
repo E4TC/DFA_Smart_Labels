@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>DFA Labels</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+<!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css">
+
+    <link href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css" rel="stylesheet" />-->
+
+    <style>
+        div[done] {
+            background-color: lightgreen;
+        }
+
+        #edit-panel {
+            position: fixed;
+            //top: 300px;
+            right: 0;
+            width: 50%;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+        //display: none; /* Initially hidden */
+        }
+
+        .badge.even-larger-badge {
+            font-size: 1.1em;
+        }
+
+        .textitext {
+            padding: 1rem;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+            integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+            crossorigin="anonymous"></script>
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <link href="assets/css/select2.min.css" rel="stylesheet" />
+    <script src="assets/js/select2.full.min.js"></script>
+</head>
+<body>
+<div class="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom shadow-sm">
+    <img src="assets/logo.png" height="50" class="d-inline-block align-top mr-md-4" alt="">
+    <img src="assets/bossard.png" height="30" class="d-inline-block align-left mr-md-4" alt="">
+    <img src="assets/sick.png" height="30" class="d-inline-block align-left mr-md-auto" alt="">
+
+    <nav class="my-2 my-md-0 mr-md-3">
+        <a class="p-2 text-dark" href="../worker.html">Worker <span id="worker-id"></span></a>
+    </nav>
+    <a class="btn btn-outline-primary" href="../orders.html">Refresh</a>
+</div>
+
+<div class="breadcrumb">
+    <div class="mr-md-auto">Number of Labels: <span id="order-number"></span></div>
+    <div class="">Last update: <span id="last-update"></span></div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-6">
+            <h2>Bestellungen und Labels</h2>
+            <ul class="list-group" id="display-list">
+            </ul>
+        </div>
+        <div class="col-md-6">
+
+            <div id="edit-panel" class="card d-none">
+                <h2>Edit Text</h2>
+                <h3>Orders</h3>
+                <select id="order-select" class="form-control"></select>
+                <h3>Selected Order Positions</h3>
+                <select id="position-select" class="form-control" disabled></select>
+                <h3>Operations</h3>
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th scope="col">Position</th>
+                        <th scope="col">ID</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Machine Name</th>
+                    </tr>
+                    </thead>
+                    <tbody id="operations-table"></tbody>
+                </table>
+                <div class="card-body">
+                    <h5 class="card-title">Display X (Dynamically populated)</h5>
+                    <textarea class="form-control" id="display-text" rows="3" placeholder="Enter text for the display..."></textarea>
+                    <div class="d-grid mt-3">
+                        <button class="btn btn-primary" id="send-update" disabled>Send Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <footer class="pt-4 my-md-5 pt-md-5 border-top">
+        <div class="row">
+            <div class="col-6">
+                <img class="mb-2" src="assets/logo.png" alt="" width="100%">
+                <small class="d-block mb-3 text-muted">&copy; 2024</small>
+            </div>
+            <div class="col-3">
+                <h5>Features</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="text-muted" href="https://e4tc.de/">Cool stuff</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Random feature</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Team feature</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Stuff for developers</a></li>
+                </ul>
+            </div>
+            <div class="col-3">
+                <h5>About</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="text-muted" href="https://e4tc.de/">Team</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Locations</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Privacy</a></li>
+                    <li><a class="text-muted" href="https://e4tc.de/">Terms</a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+</div>
+
+
+<!-- Popper JS -->
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<!-- Latest compiled JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.min.js"></script>
+<!-- Slick jQuery min
+<script src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>-->
+
+<script>
+    $(document).ready(function() {
+        var orderSelect = $("#order-select");
+        var positionSelect = $("#position-select");
+        var operationsTable = $("#operations-table");
+
+        $.getJSON("http://localhost:8080/orders", function(data) {
+            $.each(data.data, function(index, order) {
+                orderSelect.append($("<option>", { value: order.order_id, text: order.order_id }));
+            });
+            orderSelect.select2(); // Initialize select2 for search functionality
+
+            orderSelect.on("change", function() {
+                var selectedOrderId = $(this).val();
+                positionSelect.empty().prop("disabled", true); // Clear and disable position selector
+
+                if (selectedOrderId) {
+                    var positions = findPositionsByOrderId(data.data, selectedOrderId);
+                    if (positions.length > 0) {
+                        positionSelect.prop("disabled", false); // Enable position selector
+                        positionSelect.empty(); // Clear previous options
+                        $.each(positions, function(index, position) {
+                            positionSelect.append($("<option>", { value: position.position, text: position.description }));
+                        });
+                        positionSelect.select2({ // Initialize select2 for search and multi-select
+                            multiple: true
+                        });
+                    }
+                }
+            });
+            positionSelect.on("change", function() {
+                var selectedOrder = findOperationsByOrderId(data.data, orderSelect.val());
+                var selectedPositions = $(this).val(); // Array of selected position GUIDs
+                console.log(selectedOrder)
+                console.log(selectedPositions)
+                operationsTable.empty(); // Clear operations table before populating
+
+                if (selectedOrder && selectedPositions.length > 0) {
+                    console.log(selectedOrder)
+                    var filteredOperations = [];
+                    $.each(selectedOrder, function(index, operation) {
+                        console.log(selectedOrder.position)
+                        if (selectedPositions.indexOf(operation.position.toString()) !== -1) {
+                            filteredOperations.push(operation);
+                        }
+                    });
+                    console.log("filtered",filteredOperations)
+                    if (filteredOperations.length > 0) {
+                        $.each(filteredOperations, function(index, operation) {
+                            var row = $("<tr>").appendTo(operationsTable);
+                            row.append($("<td>").text(findPositionNameByOrderIdAndPosition(data.data, operation.order, operation.position)));
+                            row.append($("<td>").text(operation.operation_id));
+                            row.append($("<td>").text(operation.description));
+                            row.append($("<td>").text(operation.machine_name));
+                        });
+                    } else {
+                        operationsTable.append($("<tr>").append($("<td>").text("No matching operations found"), { colspan: 4 }));
+                    }
+                }
+            });
+        });
+    });
+
+    // Function to find positions based on order ID (can be customized for filtering)
+    function findPositionsByOrderId(orders, orderId) {
+        for (var i = 0; i < orders.length; i++) {
+            if (orders[i].order_id === orderId) {
+                return orders[i].positions;
+            }
+        }
+        return [];
+    }
+    function findOperationsByOrderId(orders, orderId) {
+        for (var i = 0; i < orders.length; i++) {
+            if (orders[i].order_id === orderId) {
+                return orders[i].operations;
+            }
+        }
+        return [];
+    }
+
+    function findPositionNameByOrderIdAndPosition(orders, orderId, position) {
+        for (var i = 0; i < orders.length; i++) {
+            if (orders[i].order_id === orderId) {
+                console.log(position)
+                console.log(orders[i].positions)
+                for (var j = 0; j < orders[i].positions.length; j++) {
+                    if (orders[i].positions[j].position === position) {
+                        return orders[i].positions[j].description
+                    }
+                }
+            }
+        }
+        return [];
+    }
+</script>
+<!--<script>-->
+<!--    var breakpoint = {-->
+<!--        // Small screen / phone-->
+<!--        sm: 576,-->
+<!--        // Medium screen / tablet-->
+<!--        md: 768,-->
+<!--        // Large screen / desktop-->
+<!--        lg: 992,-->
+<!--        // Extra large screen / wide desktop-->
+<!--        xl: 1200-->
+<!--    };-->
+
+<!--    // slick slider-->
+<!--    $('#slick').slick({-->
+<!--        autoplay: true,-->
+<!--        autoplaySpeed: 2000,-->
+<!--        pauseOnFocus: false,-->
+<!--        draggable: true,-->
+<!--        infinite: true,-->
+<!--        dots: false,-->
+<!--        arrows: false,-->
+<!--        speed: 1000,-->
+<!--        mobileFirst: true,-->
+<!--        slidesToShow: 3,-->
+<!--        slidesToScroll: 3,-->
+<!--        responsive: [{-->
+<!--            breakpoint: breakpoint.sm,-->
+<!--            settings: {-->
+<!--                slidesToShow: 4,-->
+<!--                slidesToScroll: 4,-->
+<!--                arrows: true-->
+<!--            }-->
+<!--        },-->
+<!--            {-->
+<!--                breakpoint: breakpoint.md,-->
+<!--                settings: {-->
+<!--                    slidesToShow: 5,-->
+<!--                    slidesToScroll: 5,-->
+<!--                    arrows: true-->
+<!--                }-->
+<!--            },-->
+<!--            {-->
+<!--                breakpoint: breakpoint.lg,-->
+<!--                settings: {-->
+<!--                    slidesToShow: 6,-->
+<!--                    slidesToScroll: 6,-->
+<!--                    arrows: true-->
+<!--                }-->
+<!--            },-->
+<!--            {-->
+<!--                breakpoint: breakpoint.xl,-->
+<!--                settings: {-->
+<!--                    slidesToShow: 7,-->
+<!--                    slidesToScroll: 7,-->
+<!--                    arrows: true-->
+<!--                }-->
+<!--            }-->
+<!--        ]-->
+<!--    });-->
+<!--</script>-->
+<!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>-->
+<script>
+    const displayList = document.getElementById('display-list');
+
+    // Function to create and add a list item for each display
+    $.getJSON("http://localhost:8080/labels", function(data) {
+        $.each(data.data, function (index, label) {
+
+            const listItem = document.createElement('li');
+            listItem.value = `${label.objectId}`
+            listItem.classList.add('list-group-item');
+            listItem.textContent = `${label.customFields.text}`;
+
+            const labelBadge = document.createElement('span');
+            labelBadge.classList.add('badge', 'badge-primary', 'badge-pill', 'even-larger-badge', 'float-left');
+            labelBadge.textContent = `${label.objectId}`;
+            listItem.appendChild(labelBadge);
+
+            const idBadge = document.createElement('span');
+            idBadge.classList.add('badge', 'badge-secondary', 'badge-pill', 'even-larger-badge', 'float-right');
+            idBadge.textContent = `${label.customFields.bautrag}`;
+            listItem.appendChild(idBadge);
+
+            displayList.appendChild(listItem);
+        });
+
+        const listItems = document.querySelectorAll('.list-group-item');
+        for (const item of listItems) {
+            item.addEventListener('click', () => {
+                editPanel.classList.remove('d-none'); // Make edit panel visible
+                // Update panel title with display number (replace with actual logic)
+                editPanel.querySelector('.card-title').textContent = `Display ${item.value}`;
+                // Enable send update button (replace with actual logic)
+                sendUpdateBtn.disabled = false;
+            });
+        }
+    });
+    // Create list items for all displays (30 in this example)
+    // for (let i = 1; i <= 30; i++) {
+    //     createDisplayItem(i);
+    // }
+
+    // This script would handle UI interactions (disabled for simplicity)
+    const editPanel = document.getElementById('edit-panel');
+    const displayText = document.getElementById('display-text');
+    const sendUpdateBtn = document.getElementById('send-update');
+
+    // Simulate display selection (replace with actual logic)
+</script>
+</body>
+</html>

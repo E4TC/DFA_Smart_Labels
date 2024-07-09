@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Display Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css">
+    <style>
+        .content-container {
+            min-height: 100vh; /* Set a minimum height for scrolling */
+            padding-bottom: 100px; /* Account for edit box height */
+        }
+        #edit-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 50%;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            //display: none; /* Initially hidden */
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <h1>Text Display Dashboard</h1>
+    <div class="row">
+        <div class="col-md-6">
+            <h2>Display List</h2>
+            <ul class="list-group" id="display-list">
+            </ul>
+        </div>
+        <div class="col-md-6">
+            <h2>Edit Text</h2>
+            <div id="edit-panel" class="card d-none">
+                <div class="card-body">
+                    <h5 class="card-title">Display X (Dynamically populated)</h5>
+                    <textarea class="form-control" id="display-text" rows="3" placeholder="Enter text for the display..."></textarea>
+                    <div class="d-grid mt-3">
+                        <button class="btn btn-primary" id="send-update" disabled>Send Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const displayList = document.getElementById('display-list');
+
+    // Function to create and add a list item for each display
+    function createDisplayItem(number) {
+        const listItem = document.createElement('li');
+        listItem.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+        listItem.textContent = `Display ${number}`;
+        const badge = document.createElement('span');
+        badge.classList.add('badge', 'bg-primary', 'rounded-pill');
+        badge.textContent = 'Edit';
+        listItem.appendChild(badge);
+        displayList.appendChild(listItem);
+    }
+
+    // Create list items for all displays (30 in this example)
+    for (let i = 1; i <= 30; i++) {
+        createDisplayItem(i);
+    }
+
+    // This script would handle UI interactions (disabled for simplicity)
+    const editPanel = document.getElementById('edit-panel');
+    const displayText = document.getElementById('display-text');
+    const sendUpdateBtn = document.getElementById('send-update');
+
+    // Simulate display selection (replace with actual logic)
+    const listItems = document.querySelectorAll('.list-group-item');
+    for (const item of listItems) {
+        item.addEventListener('click', () => {
+            editPanel.classList.remove('d-none'); // Make edit panel visible
+            // Update panel title with display number (replace with actual logic)
+            editPanel.querySelector('.card-title').textContent = `Display ${item.textContent.split(' ')[1]}`;
+            // Enable send update button (replace with actual logic)
+            sendUpdateBtn.disabled = false;
+        });
+    }
+</script>
+</body>
+</html>
