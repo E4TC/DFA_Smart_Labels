@@ -3,6 +3,7 @@ package main
 import (
 	"SmartLabels/models"
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -11,16 +12,14 @@ import (
 	_ "github.com/influxdata/influxdb-client-go/v2"
 	"io"
 	"log"
-	"math"
 	"net/http"
-	"os"
-	"os/signal"
+	"net/url"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
 )
 
+// Store data from broker in variables, as we are not supposed to use a database
 var order = models.Order{}
 var orderOperation = models.OrderOperation{}
 var orderOperationExecution = models.OrderOperationExecution{}
@@ -29,12 +28,19 @@ var orders []models.Order
 var orderOperations []models.OrderOperation
 var orderOperationExecutions []models.OrderOperationExecution
 
+var hostname string
+
+// Auth Token, valid for 10min, but we renew it every 5min
+var sickToken models.SickToken
+
 func main() {
 	router := gin.Default()
 
 	models.ConnectDatabase()
 
-	//go checkWorker()
+	go checkToken()
+	go checkWorker()
+
 	router.Use(static.Serve("/", static.LocalFile("./views", true)))
 
 	router.GET("/locations", getLocations)
@@ -58,11 +64,9 @@ func main() {
 	router.POST("/label", postLabel)
 	router.GET("/labels", getLabels)
 
-	//router.Run("10.101.61.127:8080")
-	go router.Run("localhost:8080")
+	go router.Run(hostname)
 
 	client := GetClient()
-
 	if token := client.Subscribe("dfa/order/#", 0, onOrderReceived); token.Wait() && token.Error() != nil {
 		fmt.Sprintf("Error subscribing to topic:", token.Error())
 	}
@@ -77,20 +81,8 @@ func main() {
 
 	getDfaLabels()
 
-	AnnounceService("e4tc_smartlabels")
-	go StartHeartbeat("e4tc_smartlabels")
-
-	//time.Sleep(time.Second * 3)
-	//s, _ := json.MarshalIndent(getOrders(), "", "\t")
-	//fmt.Println(string(s))
-
-	// Wait for a signal to exit the program gracefully
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
-
-	//client.Unsubscribe(topic)
-	client.Disconnect(250)
+	AnnounceService("e4tc_dfa_smartlabels")
+	go StartHeartbeat("e4tc_dfa_smartlabels")
 }
 
 func enterWorkerLocation(c *gin.Context) {
@@ -148,42 +140,100 @@ func leaveWorkerLocation(c *gin.Context) {
 	models.DB.Model(&worker).Updates(newLoc)
 }
 
+func getSickToken() models.SickToken {
+	var token models.SickToken
+
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("scope", "http://asset-analytics.io/api introspection")
+
+	req, _ := http.NewRequest("POST", "https://192.168.205.226/user-manager/connect/token", strings.NewReader(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Basic ZTR0Yy1jbGllbnQ6ZTR0Y2NsaWVudA==")
+
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	client := &http.Client{Transport: customTransport, Timeout: 1 * time.Second}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Printf("impossible to send request: %s", err)
+		return token
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return token
+	}
+
+	err = json.Unmarshal(body, &token)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		return token
+	}
+
+	return token
+}
+func checkToken() {
+	for {
+		sickToken = getSickToken()
+		time.Sleep(5 * time.Minute)
+	}
+}
+
 func checkWorker() {
 	for {
+		time.Sleep(500 * time.Millisecond)
+
 		var workers []models.Workers
 		if result := models.DB.Find(&workers).Error; result != nil {
-			log.Fatal(result)
+			log.Print(result)
 		}
 
 		var locations []models.Locations
 		if result := models.DB.Find(&locations).Error; result != nil {
-			log.Fatal(result)
+			log.Print(result)
 		}
 
-		for _, worker := range workers {
-			// Read worker location from external API
-			response, err := http.Get(worker.URL)
-			if err != nil {
-				log.Print(err.Error())
-				continue
-			}
-			responseData, err := io.ReadAll(response.Body)
-			if err != nil {
-				log.Fatal(err)
-			}
-			data := models.MoveWorkers{}
-			json.Unmarshal([]byte(responseData), &data)
+		var response models.AssetResponse
 
-			// Calculate distance
-			distance := float32(math.Sqrt(math.Pow(float64(worker.X-data.X), 2) + math.Pow(float64(worker.Y-data.Y), 2)))
-			if distance > 0.3 { //ignore sensor noise
-				data.Distance = worker.Distance + distance
-			}
+		req, _ := http.NewRequest("GET", "https://192.168.205.226/asset-manager/api/v2/assets/data?include=positions&include=battery", nil)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Authorization", "Bearer "+sickToken.AccessToken)
 
-			// Update DB
-			models.DB.Model(&worker).Updates(data)
+		customTransport := http.DefaultTransport.(*http.Transport).Clone()
+		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		client := &http.Client{Transport: customTransport, Timeout: 1 * time.Second}
+
+		res, err := client.Do(req)
+		if err != nil {
+			log.Println("impossible to send request: %s", err)
 		}
-		time.Sleep(1000 * time.Millisecond)
+
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			fmt.Println("Error reading response body:", err)
+		}
+
+		err = json.Unmarshal(body, &response)
+		if err != nil {
+			fmt.Println("Error unmarshalling JSON:", err)
+		}
+		for _, position := range response.Positions {
+			if position.AssetId == "11" {
+				for _, worker := range workers {
+					if worker.ID == 1 {
+						worker.X = float32(position.PositionDetails.X)
+						worker.Y = float32(position.PositionDetails.Y)
+						worker.Z = float32(position.PositionDetails.Z)
+						models.DB.Model(&worker).Updates(worker)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -338,7 +388,7 @@ func postLabel(c *gin.Context) {
 		newLabel.TimestampHr = time.Now().Format("2006-01-02 15:04:05")
 		newLabel.Status = statusCode
 		jsonObj, _ := json.Marshal(&newLabel)
-		Publish("dfa/labels/"+newLabel.Label, jsonObj)
+		Publish("dfa/ot/labels/"+newLabel.Label, jsonObj)
 		c.JSON(http.StatusOK, gin.H{"data": newLabel})
 	} else {
 		c.JSON(http.StatusForbidden, gin.H{})
@@ -360,7 +410,7 @@ func stopAllLabelFlashing() {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
 	}
 	log.Printf("status Code: %d", res.StatusCode)
 }
@@ -374,7 +424,10 @@ func switchLabelPage(label string, page uint) {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
+	}
+	if err != nil {
+		log.Printf("impossible to send request: %s", err)
 	}
 	log.Printf("status Code: %d", res.StatusCode)
 }
@@ -388,7 +441,7 @@ func switchAllLabelPage(page uint) {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
 	}
 	log.Printf("status Code: %d", res.StatusCode)
 }
@@ -402,7 +455,7 @@ func flashLabelLED(label string) {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
 	}
 	log.Printf("status Code: %d", res.StatusCode)
 }
@@ -416,7 +469,7 @@ func pingAllLabels() {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
 	}
 	log.Printf("status Code: %d", res.StatusCode)
 }
@@ -431,7 +484,7 @@ func getDfaLabels() models.ActionUpdateLabelList {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
 	}
 
 	body, err := io.ReadAll(res.Body)
@@ -461,7 +514,7 @@ func getDfaLabels() models.ActionUpdateLabelList {
 func getLabelString(id uint) string {
 	var label models.Locations
 	if result := models.DB.Where("`id` = ?", id).Last(&label).Error; result != nil {
-		log.Fatal(result)
+		log.Println(result)
 	}
 	return label.Text
 }
@@ -583,7 +636,7 @@ func setLabelData(data models.OrderLabel) int {
 	client := http.Client{Timeout: 10 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("impossible to send request: %s", err)
+		log.Printf("impossible to send request: %s", err)
 	}
 	log.Printf("status Code: %d", res.StatusCode)
 	return res.StatusCode

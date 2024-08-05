@@ -112,10 +112,10 @@
                     // sensor 52,28 is map 670,0
                     // x on map is x*12,88
                     // y on map is 370+(y*-13,2)
-                    heatmap.addData({x: Math.floor(json.data[0].x * 12.88), y: Math.floor(370+json.data[0].y * -13.2), value: 1});
+                    heatmap.addData({x: Math.floor((json.data[0].x + 40) * 12.18), y: Math.floor((json.data[0].y-1) * -12.76), value: 1});
                     console.log(heatmap.getData());
-                    document.getElementById("helmet").style.left = (json.data[0].x * 12.88)-25 + "px";
-                    document.getElementById("helmet").style.top = (370+json.data[0].y * -13.2)-25 + "px";
+                    document.getElementById("helmet").style.left = (json.data[0].x + 40) * 12.18-25 + "px";
+                    document.getElementById("helmet").style.top = (json.data[0].y-1) * -12.76-25 + "px";
                     document.getElementById("helmet").style.display = "inline"
                     //.getElementById("helmet"),(json.data[0].x * 12.88)-25,(370+json.data[0].y * -13.2)-25);
                     //getContext("2d").fillRect(json.data[0].x * 12.88,370+json.data[0].y * -13.2,5,5);
@@ -125,7 +125,7 @@
         setInterval(() => {
             trackWorker();
 
-        }, 1000);
+        }, 500);
     };
 
 </script>

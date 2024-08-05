@@ -140,7 +140,7 @@
         var positionSelect = $("#position-select");
         var operationsTable = $("#operations-table");
 
-        $.getJSON("http://localhost:8080/orders", function(data) {
+        $.getJSON("/orders", function(data) {
             $.each(data.data, function(index, order) {
                 orderSelect.append($("<option>", { value: order.order_id, text: order.order_id }));
             });
@@ -295,7 +295,7 @@
     const displayList = document.getElementById('display-list');
 
     // Function to create and add a list item for each display
-    $.getJSON("http://localhost:8080/labels", function(data) {
+    $.getJSON("/labels", function(data) {
         $.each(data.data, function (index, label) {
 
             const listItem = document.createElement('li');
