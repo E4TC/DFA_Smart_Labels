@@ -36,29 +36,9 @@ var sickToken models.SickToken
 func main() {
 	router := gin.Default()
 
-	models.ConnectDatabase()
-
 	go checkToken()
-	go checkWorker()
 
 	router.Use(static.Serve("/", static.LocalFile("./views", true)))
-
-	router.GET("/locations", getLocations)
-	router.POST("/locations", postLocations)
-	router.GET("/locations/:id", findLocations)
-	router.PATCH("/locations/:id", updateLocations)
-	router.DELETE("/locations/:id", deleteLocations)
-
-	router.GET("/workers", getWorkers)
-	router.POST("/workers", postWorkers)
-	router.GET("/workers/:id", findWorkers)
-	router.PATCH("/workers/:id", updateWorkers)
-	router.DELETE("/workers/:id", deleteWorkers)
-
-	router.POST("/workers/:id/location/:lid/enter", enterWorkerLocation)
-	router.POST("/workers/:id/location/:lid/leave", leaveWorkerLocation)
-
-	router.POST("/button", pressButton)
 
 	router.GET("/orders", getOrdersContext)
 	router.POST("/label", postLabel)
@@ -85,61 +65,7 @@ func main() {
 	go StartHeartbeat("e4tc_dfa_smartlabels")
 }
 
-func enterWorkerLocation(c *gin.Context) {
-	var worker models.Workers
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&worker).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Worker not found!"})
-		return
-	}
-
-	var location models.Locations
-	if err := models.DB.Where("id = ?", c.Param("lid")).First(&location).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location not found!"})
-		return
-	}
-
-	// Display Data on the Labels
-	//for _, pickOrder := range latestPickOrders {
-	//	if !pickOrder.Done && pickOrder.Quantity != 0 {
-	//		switchLabelPageAndQuantity(getLabelString(pickOrder.Text), pickOrder.Quantity)
-	//	} else {
-	//		switchLabelPage(getLabelString(pickOrder.Text), 3)
-	//	}
-	//}
-
-	// Set Worker position to location
-	var newLoc models.MoveWorkers
-	newLoc.X = location.X
-	newLoc.Y = location.Y
-	newLoc.Z = location.Z
-	models.DB.Model(&worker).Updates(newLoc)
-
-}
-
-func leaveWorkerLocation(c *gin.Context) {
-	var worker models.Workers
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&worker).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Worker not found!"})
-		return
-	}
-
-	var location models.Locations
-	if err := models.DB.Where("id = ?", c.Param("lid")).First(&location).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location not found!"})
-		return
-	}
-
-	// Stop Flashing and Clear Label Screens
-	stopAllLabelFlashing()
-	switchAllLabelPage(1)
-
-	var newLoc models.MoveWorkers
-	newLoc.X = 1
-	newLoc.Y = 1
-	newLoc.Z = 1
-	models.DB.Model(&worker).Updates(newLoc)
-}
-
+// We currently don't need the SICK API, but it might be useful in the future
 func getSickToken() models.SickToken {
 	var token models.SickToken
 
@@ -176,6 +102,8 @@ func getSickToken() models.SickToken {
 
 	return token
 }
+
+// Get new SICK token every 5 minutes
 func checkToken() {
 	for {
 		sickToken = getSickToken()
@@ -183,198 +111,14 @@ func checkToken() {
 	}
 }
 
-func checkWorker() {
-	for {
-		time.Sleep(500 * time.Millisecond)
-
-		var workers []models.Workers
-		if result := models.DB.Find(&workers).Error; result != nil {
-			log.Print(result)
-		}
-
-		var locations []models.Locations
-		if result := models.DB.Find(&locations).Error; result != nil {
-			log.Print(result)
-		}
-
-		var response models.AssetResponse
-
-		req, _ := http.NewRequest("GET", "https://192.168.205.226/asset-manager/api/v2/assets/data?include=positions&include=battery", nil)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
-		req.Header.Set("Authorization", "Bearer "+sickToken.AccessToken)
-
-		customTransport := http.DefaultTransport.(*http.Transport).Clone()
-		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		client := &http.Client{Transport: customTransport, Timeout: 1 * time.Second}
-
-		res, err := client.Do(req)
-		if err != nil {
-			log.Println("impossible to send request: %s", err)
-		}
-
-		body, err := io.ReadAll(res.Body)
-		if err != nil {
-			fmt.Println("Error reading response body:", err)
-		}
-
-		err = json.Unmarshal(body, &response)
-		if err != nil {
-			fmt.Println("Error unmarshalling JSON:", err)
-		}
-		for _, position := range response.Positions {
-			if position.AssetId == "11" {
-				for _, worker := range workers {
-					if worker.ID == 1 {
-						worker.X = float32(position.PositionDetails.X)
-						worker.Y = float32(position.PositionDetails.Y)
-						worker.Z = float32(position.PositionDetails.Z)
-						models.DB.Model(&worker).Updates(worker)
-					}
-				}
-			}
-		}
-	}
-}
-
-func pressButton(c *gin.Context) {
-	// Right now nothing happens on button press
-}
-
-func getLocations(c *gin.Context) {
-	var locations []models.Locations
-	models.DB.Find(&locations)
-	c.JSON(http.StatusOK, gin.H{"data": locations})
-}
-func postLocations(c *gin.Context) {
-	var newLocation models.Locations
-
-	if err := c.ShouldBindJSON(&newLocation); err != nil {
-		return
-	}
-
-	location := models.Locations{Text: newLocation.Text, X: newLocation.X, Y: newLocation.Y, Z: newLocation.Z}
-	models.DB.Create(&location)
-
-	c.JSON(http.StatusOK, gin.H{"data": location})
-}
-func findLocations(c *gin.Context) {
-	var location models.Locations
-
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&location).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location not found!"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"data": location})
-}
-func updateLocations(c *gin.Context) {
-	var location models.Locations
-
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&location).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location not found!"})
-		return
-	}
-
-	var input models.UpdateLocations
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	models.DB.Model(&location).Updates(input)
-
-	c.JSON(http.StatusOK, gin.H{"data": location})
-}
-func deleteLocations(c *gin.Context) {
-	var location models.Locations
-
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&location).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Location not found!"})
-		return
-	}
-
-	models.DB.Delete(&location)
-
-	c.JSON(http.StatusOK, gin.H{"data": true})
-}
-
-func getWorkers(c *gin.Context) {
-	var workers []models.Workers
-	models.DB.Find(&workers)
-	c.JSON(http.StatusOK, gin.H{"data": workers})
-}
-func postWorkers(c *gin.Context) {
-	if c.GetHeader("Token") == "z1s@2u9S86YN^KTpFS%^" {
-
-		var newWorker models.Workers
-		if err := c.ShouldBindJSON(&newWorker); err != nil {
-			return
-		}
-
-		worker := models.Workers{Title: newWorker.Title, X: newWorker.X, Y: newWorker.Y, Z: newWorker.Z, Distance: newWorker.Distance}
-		models.DB.Create(&worker)
-
-		c.JSON(http.StatusOK, gin.H{"data": worker})
-	} else {
-		c.JSON(http.StatusForbidden, gin.H{})
-	}
-
-}
-func findWorkers(c *gin.Context) {
-	var worker models.Workers
-
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&worker).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Worker not found!"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"data": worker})
-}
-func updateWorkers(c *gin.Context) {
-	if c.GetHeader("Token") == "z1s@2u9S86YN^KTpFS%^" {
-		var worker models.Workers
-
-		if err := models.DB.Where("id = ?", c.Param("id")).First(&worker).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Worker not found!"})
-			return
-		}
-
-		var input models.UpdateWorkers
-		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		models.DB.Model(&worker).Updates(input)
-
-		c.JSON(http.StatusOK, gin.H{"data": worker})
-	} else {
-		c.JSON(http.StatusForbidden, gin.H{})
-	}
-}
-func deleteWorkers(c *gin.Context) {
-	if c.GetHeader("Token") == "z1s@2u9S86YN^KTpFS%^" {
-		var worker models.Workers
-
-		if err := models.DB.Where("id = ?", c.Param("id")).First(&worker).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Worker not found!"})
-			return
-		}
-
-		models.DB.Delete(&worker)
-
-		c.JSON(http.StatusOK, gin.H{"data": true})
-	} else {
-		c.JSON(http.StatusForbidden, gin.H{})
-	}
-}
-
+// Return Orders list to API endpoint
 func getOrdersContext(c *gin.Context) {
 	var orders []models.Order
 	orders = getOrders()
 	c.JSON(http.StatusOK, gin.H{"data": orders})
 }
+
+// Get Data from API and send it to Bossard/Sepioo API and to the EDA broker
 func postLabel(c *gin.Context) {
 	if c.GetHeader("Token") == "z1s@2u9S86YN^KTpFS%^" {
 
@@ -395,85 +139,14 @@ func postLabel(c *gin.Context) {
 	}
 
 }
+
+// Return Label list to API endpoint
 func getLabels(c *gin.Context) {
 	dfaLabels := getDfaLabels()
 	c.JSON(http.StatusOK, gin.H{"data": dfaLabels})
 }
 
-func stopAllLabelFlashing() {
-	allLabels := models.ActionStopFlash{Objects: []string{"DemoObject1", "DemoObject2", "DemoObject3"}}
-	marshalled, _ := json.Marshal(allLabels)
-	req, _ := http.NewRequest("POST", "https://industrial-api.azure-api.net/v2.0/industry_e4tc_eu/E4TCDemo/objects/action/stopflash", bytes.NewReader(marshalled))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Ocp-Apim-Subscription-Key", "3607c3cfaf414cb6bb8f24e57c10dd71")
-
-	client := http.Client{Timeout: 10 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Printf("impossible to send request: %s", err)
-	}
-	log.Printf("status Code: %d", res.StatusCode)
-}
-func switchLabelPage(label string, page uint) {
-	allLabels := models.ActionSwitchPage{Objects: []string{label}, Page: page}
-	marshalled, _ := json.Marshal(allLabels)
-	req, _ := http.NewRequest("POST", "https://industrial-api.azure-api.net/v2.0/industry_e4tc_eu/E4TCDemo/objects/action/switchpage", bytes.NewReader(marshalled))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Ocp-Apim-Subscription-Key", "3607c3cfaf414cb6bb8f24e57c10dd71")
-
-	client := http.Client{Timeout: 10 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Printf("impossible to send request: %s", err)
-	}
-	if err != nil {
-		log.Printf("impossible to send request: %s", err)
-	}
-	log.Printf("status Code: %d", res.StatusCode)
-}
-func switchAllLabelPage(page uint) {
-	allLabels := models.ActionSwitchPage{Objects: []string{"DemoObject1", "DemoObject2", "DemoObject3"}, Page: page}
-	marshalled, _ := json.Marshal(allLabels)
-	req, _ := http.NewRequest("POST", "https://industrial-api.azure-api.net/v2.0/industry_e4tc_eu/E4TCDemo/objects/action/switchpage", bytes.NewReader(marshalled))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Ocp-Apim-Subscription-Key", "3607c3cfaf414cb6bb8f24e57c10dd71")
-
-	client := http.Client{Timeout: 10 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Printf("impossible to send request: %s", err)
-	}
-	log.Printf("status Code: %d", res.StatusCode)
-}
-func flashLabelLED(label string) {
-	allLabels := models.ActionFlash{Objects: []string{label}, Color: "RED", Duration: 5, Patter: "FLASH_1_SECOND"}
-	marshalled, _ := json.Marshal(allLabels)
-	req, _ := http.NewRequest("POST", "https://industrial-api.azure-api.net/v2.0/industry_e4tc_eu/E4TCDemo/objects/action/flash", bytes.NewReader(marshalled))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Ocp-Apim-Subscription-Key", "3607c3cfaf414cb6bb8f24e57c10dd71")
-
-	client := http.Client{Timeout: 10 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Printf("impossible to send request: %s", err)
-	}
-	log.Printf("status Code: %d", res.StatusCode)
-}
-func pingAllLabels() {
-	allLabels := models.ActionStopFlash{Objects: []string{"DemoObject1", "DemoObject2", "DemoObject3"}}
-	marshalled, _ := json.Marshal(allLabels)
-	req, _ := http.NewRequest("POST", "https://industrial-api.azure-api.net/v2.0/industry_e4tc_eu/E4TCDemo/objects/action/ping", bytes.NewReader(marshalled))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Ocp-Apim-Subscription-Key", "3607c3cfaf414cb6bb8f24e57c10dd71")
-
-	client := http.Client{Timeout: 10 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
-		log.Printf("impossible to send request: %s", err)
-	}
-	log.Printf("status Code: %d", res.StatusCode)
-}
-
+// Get list of DFA Labels from Bossard/Sepioo API
 func getDfaLabels() models.ActionUpdateLabelList {
 	var allLabels models.ActionUpdateLabelList
 
@@ -496,7 +169,6 @@ func getDfaLabels() models.ActionUpdateLabelList {
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
 	}
-	//log.Printf("status Code: %d", res.StatusCode)
 
 	// Filter DFA Labels
 	var dfaLabels models.ActionUpdateLabelList
@@ -507,30 +179,27 @@ func getDfaLabels() models.ActionUpdateLabelList {
 			}
 		}
 	}
-	//fmt.Println(dfaLabels)
+
 	return dfaLabels
 }
 
-func getLabelString(id uint) string {
-	var label models.Locations
-	if result := models.DB.Where("`id` = ?", id).Last(&label).Error; result != nil {
-		log.Println(result)
-	}
-	return label.Text
-}
-
+// When new order arrives from the broker add it to the array
 func onOrderReceived(client mqtt.Client, message mqtt.Message) {
 	if err := json.Unmarshal(message.Payload(), &order); err != nil {
 		fmt.Println(err)
 	}
 	orders = append(orders, order)
 }
+
+// When new operation arrives from the broker add it to the array
 func onOperationReceived(client mqtt.Client, message mqtt.Message) {
 	if err := json.Unmarshal(message.Payload(), &orderOperation); err != nil {
 		fmt.Println(err)
 	}
 	orderOperations = append(orderOperations, orderOperation)
 }
+
+// When new execution arrives from the broker add it to the array
 func onOperationExecutionReceived(client mqtt.Client, message mqtt.Message) {
 	if err := json.Unmarshal(message.Payload(), &orderOperationExecution); err != nil {
 		fmt.Println(err)
@@ -538,6 +207,7 @@ func onOperationExecutionReceived(client mqtt.Client, message mqtt.Message) {
 	orderOperationExecutions = append(orderOperationExecutions, orderOperationExecution)
 }
 
+// Use the latest data from the broker and create an Array of Orders which contains all associated operations and executions
 func getOrders() []models.Order {
 	orderMap := make(map[string]int)
 	for i, order := range orders {
@@ -569,43 +239,8 @@ func getOrders() []models.Order {
 	}
 	return orders
 }
-func mapOperationToOrders(orders []models.Order, operation models.OrderOperation) {
-	// Create a map to store orderID as key and index in the 'orders' slice as value
-	orderMap := make(map[string]int)
-	for i, order := range orders {
-		orderMap[order.OrderID] = i
-	}
 
-	// assign operation to matching orders using the map
-	if orderIndex, ok := orderMap[operation.Order]; ok {
-		for i, oe := range orders[orderIndex].Operations {
-			//fmt.Println(oe.Guid, operation.Guid)
-			if oe.Guid == operation.Guid {
-				orders[orderIndex].Operations = slices.Delete(orders[orderIndex].Operations, i, i+1)
-			}
-		}
-		orders[orderIndex].Operations = append(orders[orderIndex].Operations, operation)
-	}
-}
-func mapOperationExecutionToOrders(orders []models.Order, operationEx models.OrderOperationExecution) {
-	// Create a map to store orderID as key and index in the 'orders' slice as value
-	orderMap := make(map[string]int)
-	for i, order := range orders {
-		orderMap[order.OrderID] = i
-	}
-
-	// assign operation to matching orders using the map
-	if orderIndex, ok := orderMap[operationEx.Order]; ok {
-		for i, oe := range orders[orderIndex].OperationExecution {
-			if oe.Guid == operationEx.Guid {
-				orders[orderIndex].OperationExecution = slices.Delete(orders[orderIndex].OperationExecution, i, i+1)
-			}
-		}
-		orders[orderIndex].OperationExecution = append(orders[orderIndex].OperationExecution, operationEx)
-	}
-
-}
-
+// Use Bossard/Sepioo API to update Label Data
 func setLabelData(data models.OrderLabel) int {
 	update := models.UpdateLabel{Label: data.Label, Order: data.Order, LabelOperations: strings.Join(data.LabelOperations, " "), Comment: data.Comment}
 	for id, value := range data.LabelPositions {
