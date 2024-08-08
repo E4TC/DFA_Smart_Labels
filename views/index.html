@@ -22,6 +22,7 @@
             background-color: #fff;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
             padding: 1rem;
+            z-index: 1;
         //display: none; /* Initially hidden */
         }
 
@@ -156,7 +157,7 @@
                         positionSelect.prop("disabled", false); // Enable position selector
                         positionSelect.empty(); // Clear previous options
                         $.each(positions, function(index, position) {
-                            positionSelect.append($("<option>", { value: position.position, text: position.description }));
+                            positionSelect.append($("<option>", { value: position.position, text: position.article }));
                         });
                         positionSelect.select2({ // Initialize select2 for search and multi-select
                             multiple: true
@@ -222,7 +223,7 @@
                 console.log(orders[i].positions)
                 for (var j = 0; j < orders[i].positions.length; j++) {
                     if (orders[i].positions[j].position === position) {
-                        return orders[i].positions[j].description
+                        return orders[i].positions[j].article
                     }
                 }
             }
@@ -302,6 +303,7 @@
             listItem.value = `${label.objectId}`
             listItem.classList.add('list-group-item');
             listItem.textContent = `${label.customFields.text}`;
+            listItem.LabelText = `${label.customFields.text}`;
 
             const labelBadge = document.createElement('span');
             labelBadge.classList.add('badge', 'badge-primary', 'badge-pill', 'even-larger-badge', 'float-left');
@@ -321,7 +323,8 @@
             item.addEventListener('click', () => {
                 editPanel.classList.remove('d-none'); // Make edit panel visible
                 // Update panel title with display number (replace with actual logic)
-                editPanel.querySelector('.card-title').textContent = `Display ${item.value}`;
+                editPanel.querySelector('.card-title').textContent = `Custom Text of Label ${item.value}`;
+                editPanel.querySelector('#display-text').textContent = item.LabelText
                 // Enable send update button (replace with actual logic)
                 sendUpdateBtn.disabled = false;
             });

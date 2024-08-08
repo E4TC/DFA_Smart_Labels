@@ -9,7 +9,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
-	_ "github.com/influxdata/influxdb-client-go/v2"
 	"io"
 	"log"
 	"net/http"
@@ -44,9 +43,7 @@ func main() {
 	router.POST("/label", postLabel)
 	router.GET("/labels", getLabels)
 
-	go router.Run(hostname)
-
-	client := GetClient()
+	client := GetClient("e4tc_orders_client")
 	if token := client.Subscribe("dfa/order/#", 0, onOrderReceived); token.Wait() && token.Error() != nil {
 		fmt.Sprintf("Error subscribing to topic:", token.Error())
 	}
@@ -63,6 +60,8 @@ func main() {
 
 	AnnounceService("e4tc_dfa_smartlabels")
 	go StartHeartbeat("e4tc_dfa_smartlabels")
+
+	router.Run(hostname)
 }
 
 // We currently don't need the SICK API, but it might be useful in the future

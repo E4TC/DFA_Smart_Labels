@@ -14,7 +14,7 @@ type Order struct {
 type OrderPosition struct {
 	Guid        string `json:"guid"`
 	Position    int    `json:"position"`
-	Description string `json:"description"`
+	Description string `json:"article"`
 	Quantity    int    `json:"quantity"`
 	State       string `json:"state"`
 }
