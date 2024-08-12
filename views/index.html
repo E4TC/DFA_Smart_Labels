@@ -70,7 +70,7 @@
         <div class="col-md-6">
 
             <div id="edit-panel" class="card d-none">
-                <h2>Edit Text</h2>
+                <h2 id="label-id">Edit Text</h2>
                 <h3>Orders</h3>
                 <select id="order-select" class="form-control"></select>
                 <h3>Selected Order Positions</h3>
@@ -91,7 +91,7 @@
                     <h5 class="card-title">Display X (Dynamically populated)</h5>
                     <textarea class="form-control" id="display-text" rows="3" placeholder="Enter text for the display..."></textarea>
                     <div class="d-grid mt-3">
-                        <button class="btn btn-primary" id="send-update" disabled>Send Update</button>
+                        <button class="btn btn-primary"  id="updateLabel" disabled>Update Label</button>
                     </div>
                 </div>
             </div>
@@ -231,67 +231,6 @@
         return [];
     }
 </script>
-<!--<script>-->
-<!--    var breakpoint = {-->
-<!--        // Small screen / phone-->
-<!--        sm: 576,-->
-<!--        // Medium screen / tablet-->
-<!--        md: 768,-->
-<!--        // Large screen / desktop-->
-<!--        lg: 992,-->
-<!--        // Extra large screen / wide desktop-->
-<!--        xl: 1200-->
-<!--    };-->
-
-<!--    // slick slider-->
-<!--    $('#slick').slick({-->
-<!--        autoplay: true,-->
-<!--        autoplaySpeed: 2000,-->
-<!--        pauseOnFocus: false,-->
-<!--        draggable: true,-->
-<!--        infinite: true,-->
-<!--        dots: false,-->
-<!--        arrows: false,-->
-<!--        speed: 1000,-->
-<!--        mobileFirst: true,-->
-<!--        slidesToShow: 3,-->
-<!--        slidesToScroll: 3,-->
-<!--        responsive: [{-->
-<!--            breakpoint: breakpoint.sm,-->
-<!--            settings: {-->
-<!--                slidesToShow: 4,-->
-<!--                slidesToScroll: 4,-->
-<!--                arrows: true-->
-<!--            }-->
-<!--        },-->
-<!--            {-->
-<!--                breakpoint: breakpoint.md,-->
-<!--                settings: {-->
-<!--                    slidesToShow: 5,-->
-<!--                    slidesToScroll: 5,-->
-<!--                    arrows: true-->
-<!--                }-->
-<!--            },-->
-<!--            {-->
-<!--                breakpoint: breakpoint.lg,-->
-<!--                settings: {-->
-<!--                    slidesToShow: 6,-->
-<!--                    slidesToScroll: 6,-->
-<!--                    arrows: true-->
-<!--                }-->
-<!--            },-->
-<!--            {-->
-<!--                breakpoint: breakpoint.xl,-->
-<!--                settings: {-->
-<!--                    slidesToShow: 7,-->
-<!--                    slidesToScroll: 7,-->
-<!--                    arrows: true-->
-<!--                }-->
-<!--            }-->
-<!--        ]-->
-<!--    });-->
-<!--</script>-->
-<!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>-->
 <script>
     const displayList = document.getElementById('display-list');
 
@@ -324,23 +263,66 @@
                 editPanel.classList.remove('d-none'); // Make edit panel visible
                 // Update panel title with display number (replace with actual logic)
                 editPanel.querySelector('.card-title').textContent = `Custom Text of Label ${item.value}`;
+                editPanel.querySelector('#label-id').textContent = `${item.value}`;
                 editPanel.querySelector('#display-text').textContent = item.LabelText
                 // Enable send update button (replace with actual logic)
                 sendUpdateBtn.disabled = false;
             });
         }
     });
-    // Create list items for all displays (30 in this example)
-    // for (let i = 1; i <= 30; i++) {
-    //     createDisplayItem(i);
-    // }
 
-    // This script would handle UI interactions (disabled for simplicity)
     const editPanel = document.getElementById('edit-panel');
     const displayText = document.getElementById('display-text');
-    const sendUpdateBtn = document.getElementById('send-update');
+    const sendUpdateBtn = document.getElementById('updateLabel');
 
-    // Simulate display selection (replace with actual logic)
+    async function sendData() {
+        // Data Model:
+        // Label           string   `json:"label"`
+        // Order           string   `json:"order"`
+        // LabelOperations []string `json:"label_operations"`
+        // LabelPositions  []string `json:"label_positions"`
+        // Comment         string   `json:"comment"`
+        // Timestamp       int64    `json:"timestamp,omitempty"`
+        // TimestampHr     string   `json:"timestamp_hr,omitempty"`
+        // Status          int      `json:"status,omitempty"`
+
+        var newLabel = {};
+        newLabel.label = document.getElementById("label-id").textContent
+        newLabel.order = document.getElementById("select2-order-select-container").textContent
+        newLabel.comment = document.getElementById("display-text").value
+        newLabel.label_positions = []
+        newLabel.label_operations = []
+
+        selectData = $('#position-select').select2('data')
+        for (i of selectData) {
+            newLabel.label_positions.push(i.text)
+        }
+
+        table = document.getElementById("operations-table")
+        for(var i = 0, l = table.rows.length; i < l;  i++) {
+            newLabel.label_operations.push(table.rows[i].cells[1].innerText)
+        }
+
+        console.log(newLabel)
+        try {
+            const response = await fetch("/label", {
+                method: "POST",
+                body: JSON.stringify(newLabel),
+            });
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Success:', result);
+            } else {
+                console.error('Error:', response.status, response.statusText);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    sendUpdateBtn.addEventListener("click", (event) => {
+        sendData();
+    });
 </script>
 </body>
 </html>

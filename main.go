@@ -119,23 +119,18 @@ func getOrdersContext(c *gin.Context) {
 
 // Get Data from API and send it to Bossard/Sepioo API and to the EDA broker
 func postLabel(c *gin.Context) {
-	if c.GetHeader("Token") == "z1s@2u9S86YN^KTpFS%^" {
-
-		var newLabel models.OrderLabel
-		if err := c.ShouldBindJSON(&newLabel); err != nil {
-			return
-		}
-
-		statusCode := setLabelData(newLabel)
-		newLabel.Timestamp = time.Now().Unix()
-		newLabel.TimestampHr = time.Now().Format("2006-01-02 15:04:05")
-		newLabel.Status = statusCode
-		jsonObj, _ := json.Marshal(&newLabel)
-		Publish("dfa/ot/labels/"+newLabel.Label, jsonObj)
-		c.JSON(http.StatusOK, gin.H{"data": newLabel})
-	} else {
-		c.JSON(http.StatusForbidden, gin.H{})
+	var newLabel models.OrderLabel
+	if err := c.ShouldBindJSON(&newLabel); err != nil {
+		return
 	}
+
+	statusCode := setLabelData(newLabel)
+	newLabel.Timestamp = time.Now().Unix()
+	newLabel.TimestampHr = time.Now().Format("2006-01-02 15:04:05")
+	newLabel.Status = statusCode
+	jsonObj, _ := json.Marshal(&newLabel)
+	Publish("dfa/ot/labels/"+newLabel.Label, jsonObj)
+	c.JSON(http.StatusOK, gin.H{"data": newLabel})
 
 }
 
@@ -241,25 +236,7 @@ func getOrders() []models.Order {
 
 // Use Bossard/Sepioo API to update Label Data
 func setLabelData(data models.OrderLabel) int {
-	update := models.UpdateLabel{Label: data.Label, Order: data.Order, LabelOperations: strings.Join(data.LabelOperations, " "), Comment: data.Comment}
-	for id, value := range data.LabelPositions {
-		switch id {
-		case 0:
-			update.Join1 = value
-		case 1:
-			update.Join2 = value
-		case 2:
-			update.Join3 = value
-		case 3:
-			update.Join4 = value
-		case 4:
-			update.Join5 = value
-		case 5:
-			update.Join6 = value
-		case 6:
-			update.Join7 = value
-		}
-	}
+	update := models.UpdateLabel{Label: data.Label, Order: data.Order, Positions: strings.Join(data.LabelPositions, "\f "), Comment: data.Comment, OperationID: data.LabelOperations}
 	allLabels := models.ActionUpdateLabel{Objects: data.Label, CustomFields: update}
 	marshalled, _ := json.Marshal(allLabels)
 	fmt.Println(allLabels)

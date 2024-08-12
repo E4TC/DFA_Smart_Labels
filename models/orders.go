@@ -55,17 +55,18 @@ type OrderLabel struct {
 }
 
 type UpdateLabel struct {
-	Label           string `json:"ID"`
-	Order           string `json:"bautrag"`
-	LabelOperations string `json:"aplan"`
-	Join1           string `json:"join1"`
-	Join2           string `json:"join2"`
-	Join3           string `json:"join3"`
-	Join4           string `json:"join4"`
-	Join5           string `json:"join5"`
-	Join6           string `json:"join6"`
-	Join7           string `json:"join7"`
-	Comment         string `json:"text"`
+	Label       string   `json:"ID"`
+	Order       string   `json:"bautrag"`
+	Positions   string   `json:"aplan"`
+	Join1       string   `json:"join1"`
+	Join2       string   `json:"join2"`
+	Join3       string   `json:"join3"`
+	Join4       string   `json:"join4"`
+	Join5       string   `json:"join5"`
+	Join6       string   `json:"join6"`
+	Join7       string   `json:"join7"`
+	OperationID []string `json:"operationID"`
+	Comment     string   `json:"text"`
 }
 
 type ActionUpdateLabelList []struct {
