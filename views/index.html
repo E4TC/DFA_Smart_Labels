@@ -295,7 +295,7 @@
 
         selectData = $('#position-select').select2('data')
         for (i of selectData) {
-            newLabel.label_positions.push(i.text)
+            newLabel.label_positions.push(String(i.text))
         }
 
         table = document.getElementById("operations-table")

@@ -236,6 +236,7 @@ func getOrders() []models.Order {
 
 // Use Bossard/Sepioo API to update Label Data
 func setLabelData(data models.OrderLabel) int {
+	// LabelPositions are split with a /f (flush line) character as /n (new line) is not available in the ZFull font on the labels
 	update := models.UpdateLabel{Label: data.Label, Order: data.Order, Positions: strings.Join(data.LabelPositions, "\f "), Comment: data.Comment, OperationID: data.LabelOperations}
 	allLabels := models.ActionUpdateLabel{Objects: data.Label, CustomFields: update}
 	marshalled, _ := json.Marshal(allLabels)
