@@ -34,7 +34,7 @@ func GetClient(id_optional ...string) mqtt.Client {
 
 // Announce Service to EDA broker
 func AnnounceService(service string) {
-	client := GetClient("e4tc_announce_client")
+	client := GetClient(service + "_announce_client")
 	event := &Event{Timestamp: time.Now().UnixNano() / 1e6, TimestampHr: time.Now().Format("2006-01-02 15:04:05"), Event: "announcement"}
 	jsonObj, _ := json.Marshal(event)
 	token := client.Publish("meta/svc/service_"+service+"/announced", 0, true, jsonObj)
@@ -46,7 +46,7 @@ func AnnounceService(service string) {
 
 // Start Heartbeat to EDA broker, send heartbeat every 5 seconds, mutex makes sure only one process is running in parallel
 func StartHeartbeat(service string) {
-	client := GetClient("e4tc_heartbeat_client")
+	client := GetClient(service + "_heartbeat_client")
 	for range time.Tick(time.Second * 5) {
 		if MQTTAnnounceLock.TryLock() {
 			// Timestamp has to be in Miliseconds -> nanoseconds divided by 1000000
@@ -67,7 +67,7 @@ func on_message_receive() {
 
 // Send Message to EDA broker, not used in Smartlabels1
 func Publish(topic string, jsonObj []byte) {
-	client := GetClient("e4tc_pub_client")
+	client := GetClient("e4tc_pub_client" + topic)
 	token := client.Publish(topic, 0, false, jsonObj)
 	if token.Wait() && token.Error() != nil {
 		fmt.Sprintf("Error connecting to MQTT broker:", token.Error())
