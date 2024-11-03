@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "user_management",
     "rest_framework",
     "drf_spectacular",
+    "backend"
     
 ]
 
@@ -194,3 +195,8 @@ if django.VERSION[0] < 6:
     # https://adamj.eu/tech/2023/12/07/django-fix-urlfield-assume-scheme-warnings/
     filterwarnings("ignore", "The FORMS_URLFIELD_ASSUME_HTTPS transitional setting is deprecated.")
     FORMS_URLFIELD_ASSUME_HTTPS = True
+
+
+#CELERY SETTINGS
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
