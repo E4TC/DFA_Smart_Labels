@@ -1,0 +1,14 @@
+plugins= [
+    "mypy_django_plugin.main",
+    "mypy_drf_plugin.main",
+]
+
+[mypy.plugins.django-stubs]
+django_settings_module = "dfa_smart_labels.settings"
+
+[tool.django-stubs]
+django_settings_module = "dfa_smart_labels.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "dfa_smart_labels.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]

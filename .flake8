@@ -1,0 +1,17 @@
+[flake8]
+filename = *.py
+exclude =
+	.git,
+	__pycache__,
+	env,
+    .env,
+	venv,
+    .venv,
+    .nox,
+	docs,
+	locale,
+	*/migrations/*,
+	*/oldmigrations/*
+max_line_length = 120
+count = True
+ignore = W503

@@ -1,0 +1,5 @@
+# Required if using mysql / mariadb for production database
+mysqlclient~=2.2
+
+# Recommended to use for deployment. If channels are needed, it should be replaced by uvicorn
+gunicorn~=21.2
